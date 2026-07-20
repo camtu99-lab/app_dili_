@@ -1,1 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>DILI Prediction Demo | MXAINet</title>
+<style>
+  :root {
+    --primary: #1d6f5c;
+    --primary-dark: #14503f;
+    --danger: #c0392b;
+    --safe: #1d6f5c;
+    --bg: #f4f7f6;
+    --card: #ffffff;
+    --border: #e0e6e4;
+    --text: #223027;
+    --muted: #6b7d75;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: white;
+    padding: 32px 20px;
+    text-align: center;
+  }
+  .header h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  .header p { margin: 0; opacity: 0.85; font-size: 0.92rem; }
+  .container {
+    max-width: 720px;
+    margin: -30px auto 40px;
+    padding: 0 16px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    padding: 28px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  label { font-weight: 600; font-size: 0.92rem; color: var(--text); }
+  .smiles-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    margin-top: 8px;
+    font-family: "Consolas", monospace;
+  }
+  .smiles-input:focus { outline: none; border-color: var(--primary); }
+  .btn {
+    margin-top: 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-size: 0.98rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .examples { margin-top: 12px; font-size: 0.85rem; color: var(--muted); }
+  .examples a { color: var(--primary); text-decoration: none; margin-right: 10px; cursor: pointer; }
+  .examples a:hover { text-decoration: underline; }
 
+  .error-box {
+    background: #fdecea;
+    color: var(--danger);
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 0.92rem;
+  }
+
+  .result-card { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .mol-image { flex-shrink: 0; background: #fafafa; border-radius: 10px; border: 1px solid var(--border); padding: 4px; }
+  .result-details { flex: 1; min-width: 220px; }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+  }
+  .badge.positive { background: #fdecea; color: var(--danger); }
+  .badge.negative { background: #e8f5f0; color: var(--safe); }
+
+  .prob-row { margin: 6px 0; font-size: 0.9rem; }
+  .prob-bar-bg { background: #eee; border-radius: 6px; height: 10px; overflow: hidden; margin-top: 4px; }
+  .prob-bar-fill { height: 100%; border-radius: 6px; }
+  .prob-bar-fill.pos { background: var(--danger); }
+  .prob-bar-fill.neg { background: var(--safe); }
+
+  .smiles-canon { font-family: monospace; font-size: 0.82rem; color: var(--muted); word-break: break-all; margin-top: 10px; }
+
+  .disclaimer {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+    padding: 0 8px;
+  }
+  .disclaimer b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧪 DILI Prediction Demo</h1>
+  <p>Dự đoán nguy cơ tổn thương gan do thuốc (Drug-Induced Liver Injury) từ cấu trúc SMILES</p>
+  <p style="font-size:0.8rem; margin-top:6px;">Bản dựng lại minh họa dựa trên khóa luận tốt nghiệp — mô hình MACCS 166 Keys + Random Forest</p>
+</div>
+
+<div class="container">
+
+  <div class="card">
+    <form method="POST">
+      <label for="smiles">Nhập chuỗi SMILES của hợp chất:</label>
+      <input
+        type="text"
+        id="smiles"
+        name="smiles"
+        class="smiles-input"
+        placeholder="Ví dụ: CC(=O)Nc1ccc(O)cc1  (Paracetamol)"
+        value="{{ smiles_input }}"
+        autocomplete="off"
+      >
+      <div class="examples">
+        Thử nhanh:
+        <a onclick="document.getElementById('smiles').value='CC(=O)Nc1ccc(O)cc1'">Paracetamol</a>
+        <a onclick="document.getElementById('smiles').value='CC(=O)Oc1ccccc1C(=O)O'">Aspirin</a>
+        <a onclick="document.getElementById('smiles').value='O=C(O)c1ccccc1Nc1c(Cl)cccc1Cl'">Diclofenac</a>
+        <a onclick="document.getElementById('smiles').value='Cn1cnc2c1c(=O)n(C)c(=O)n2C'">Caffeine</a>
+      </div>
+      <button type="submit" class="btn">Dự đoán</button>
+    </form>
+  </div>
+
+  {% if error %}
+  <div class="error-box">⚠️ {{ error }}</div>
+  {% endif %}
+
+  {% if result %}
+  <div class="card result-card">
+    {% if mol_svg %}
+    <div class="mol-image">{{ mol_svg | safe }}</div>
+    {% endif %}
+    <div class="result-details">
+      <span class="badge {{ 'positive' if result.is_positive else 'negative' }}">
+        {{ result.label }}
+      </span>
+
+      <div class="prob-row">
+        Xác suất DILI-positive: <b>{{ result.prob_positive }}%</b>
+        <div class="prob-bar-bg"><div class="prob-bar-fill pos" style="width: {{ result.prob_positive }}%;"></div></div>
+      </div>
+      <div class="prob-row">
+        Xác suất DILI-negative: <b>{{ result.prob_negative }}%</b>
+        <div class="prob-bar-bg"><div class="prob-bar-fill neg" style="width: {{ result.prob_negative }}%;"></div></div>
+      </div>
+
+      <div class="smiles-canon">Canonical SMILES: {{ result.canonical_smiles }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="disclaimer">
+    <b>Lưu ý:</b> đây là bản demo minh họa quy trình, mô hình được huấn luyện trên bộ dữ liệu mẫu rất nhỏ (~40 chất),
+    <b>không phải</b> mô hình đã huấn luyện trên bộ dữ liệu thật (DILIrank/LiverTox/DILI-DB, ~5.172 mẫu) trong khóa luận.
+    Kết quả dự đoán ở đây chỉ mang tính chất kỹ thuật, không dùng cho mục đích sàng lọc dược phẩm thực tế.
+  </p>
+
+</div>
+</body>
+</html>
